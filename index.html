@@ -1,0 +1,268 @@
+<!doctype html>
+<html lang="en">
+<head>
+	<title>Model Animation with Movement Controls (Three.js)</title>
+	<meta charset="utf-8">
+	<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+	<link rel=stylesheet href="css/base.css"/>
+</head>
+<body>
+
+<!-- External -->   
+
+<script src="js/tmin.js"></script>
+<script src="js/FastBlur.js"></script>   
+<script src="js/jquery.min.js"></script>   
+<script src="js/konami.js"></script>       
+<script src="js/OrbitControls.js"></script>    
+<script src="js/RequestAnimationFrame.js"></script>    
+    
+<!-- Teren -->    
+<script src="js/terrain/blur.js"></script>    
+<script src="js/terrain/circle.js"></script> 
+<script src="js/terrain/destructure.js"></script>   
+<script src="js/terrain/mersenne-twister.js"></script> 
+<script src="js/terrain/mountains.js"></script>     
+<script src="js/terrain/perlinnoise.js"></script>
+<script src="js/terrain/terraingen.js"></script>   
+    
+<!-- Shader za vodo -->
+<script src="js/water-material.js"></script>
+    
+<!-- Ostalo -->    
+
+<script src="js/Detector.js"></script>
+<script src="js/THREEx.KeyboardState.js"></script>
+<script src="js/THREEx.FullScreen.js"></script>
+<script src="js/THREEx.WindowResize.js"></script>
+<script src="js/physi.js"></script>
+<script src="js/Three.js"></script>
+
+
+
+
+<div id="ThreeJS" style="position: absolute; left:0px; top:0px"></div>
+<script>
+
+// MAIN
+
+//Globalne spremenljike
+var container, scene, camera, renderer, render, controls, stats, water, walls;
+var keyboard = new THREEx.KeyboardState();
+var clock = new THREE.Clock();
+
+var boat;
+var boat2;
+var collidableMeshList = [];
+
+    
+init();
+animate();
+
+//FUNCTIONS
+    
+
+function init()
+    {
+	
+    //Scena
+    
+	scene = new Physijs.Scene();
+        
+	//Kamera
+	var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
+	var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
+	camera = new THREE.PerspectiveCamera( VIEW_ANGLE, ASPECT, NEAR, FAR);
+	scene.add(camera);
+	camera.position.set(0,150,400);
+	camera.lookAt(scene.position);	
+    
+	//Renderer
+	if ( Detector.webgl )
+		renderer = new THREE.WebGLRenderer( {antialias:true} );
+	else
+		renderer = new THREE.CanvasRenderer(); 
+	renderer.setSize(window.innerWidth, window.innerHeight);
+	container = document.getElementById( 'ThreeJS' );
+	container.appendChild( renderer.domElement );
+    
+    scene.simulate(); // run physics
+    renderer.render(scene, camera); // render the scene
+    requestAnimationFrame(render);
+   
+    
+	//Eventi
+	THREEx.WindowResize(renderer, camera);
+	THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+    
+    //Kontrole
+    
+	controls = new THREE.OrbitControls(camera, renderer.domElement);
+    
+	//Svetloba
+	var directionalLight = new THREE.DirectionalLight(0xffff55, 1);
+    directionalLight.position.set(-600, 300, 600);
+	scene.add(directionalLight);
+    
+	//Voda
+    var waterNormals = new THREE.ImageUtils.loadTexture('images/waternormals.jpg');
+    waterNormals.wrapS = waterNormals.wrapT = THREE.RepeatWrapping; 
+    water = new THREE.Water(renderer, camera, scene, {
+			textureWidth: 256,
+			textureHeight: 256,
+			waterNormals: waterNormals,
+			alpha: 	1.0,
+			sunDirection: directionalLight.position.normalize(),
+			sunColor: 0xffffff,
+			waterColor: 0x3366FF,
+			betaVersion: 0,
+			side: THREE.DoubleSide
+		});
+		var aMeshMirror = new Physijs.BoxMesh(
+			new THREE.PlaneGeometry(4990,4990, 100, 100), 
+			water.material
+		);
+		aMeshMirror.add(water);
+		aMeshMirror.rotation.x = - Math.PI * 0.5;
+		
+		scene.add(aMeshMirror);
+
+        
+	// SKYBOX/FOG
+
+	
+	var imagePrefix = "images/sky-";
+	var directions  = ["xpos", "xneg", "ypos", "yneg", "zpos", "zneg"];
+	var imageSuffix = ".jpg";
+	var skyGeometry = new THREE.CubeGeometry( 5000, 5000, 5000 );	
+	
+	var materialArray = [];
+	for (var i = 0; i < 6; i++)
+		materialArray.push( new THREE.MeshBasicMaterial({
+			map: THREE.ImageUtils.loadTexture( imagePrefix + directions[i] + imageSuffix ),
+			side: THREE.BackSide
+		}));
+	var skyMaterial = new THREE.MeshFaceMaterial( materialArray );
+	var skyBox = new THREE.Mesh( skyGeometry, skyMaterial );
+	scene.add( skyBox ); 
+    
+	
+    //Model
+	var jsonLoader = new THREE.JSONLoader();
+	jsonLoader.load( "models/warship.js", addModelToScene );
+	jsonLoader.load("models/warship.js", addModel2ToScene);
+    
+	var ambientLight = new THREE.AmbientLight(0x111111);
+	scene.add(ambientLight);
+    
+    
+	
+}
+
+function addModelToScene( geometry, materials ) 
+{	
+	var material = new THREE.MeshFaceMaterial( materials );
+	boat = new THREE.Mesh( geometry, material );
+	boat.scale.set(10,10,10);
+	scene.add( boat );
+    //collidableMeshList.push(boat);
+}
+
+function addModel2ToScene( geometry, materials ) 
+{	
+	var material = new THREE.MeshFaceMaterial( materials );
+	boat2 = new THREE.Mesh( geometry, material );
+	boat2.scale.set(10,10,10);
+	scene.add( boat2 );
+    //collidableMeshList.push(boat2);
+}    
+    
+    
+function animate() 
+{
+    requestAnimationFrame( animate );
+	render();		
+	update();
+}
+
+function display(){
+    water.render();
+	renderer.render(scene, camera);
+}
+    
+function update()
+{
+    
+    water.material.uniforms.time.value += 1.0 / 60.0;
+    display();
+	// delta = change in time since last call (seconds)
+	delta = clock.getDelta(); 
+	var moveDistance = 100 * delta;
+	walking = false;
+	
+	// Premikanje (P1)
+	if ( keyboard.pressed("down") )
+		boat.translateZ( -moveDistance );
+	if ( keyboard.pressed("up") )
+		boat.translateZ(  moveDistance );
+	// rotate left/right
+	if ( keyboard.pressed("left") )
+		boat.rotation.y += delta;
+	if ( keyboard.pressed("right") )
+		boat.rotation.y -= delta;
+	var walkingKeys = ["up", "down", "left", "right"];
+	for (var i = 0; i < walkingKeys.length; i++)
+	{
+		if ( keyboard.pressed(walkingKeys[i]) )
+			walking = true;
+	}
+	
+    //Premikanje (P2)
+    if ( keyboard.pressed("s") )
+		boat2.translateZ( -moveDistance );
+	if ( keyboard.pressed("w") )
+		boat2.translateZ(  moveDistance );
+	// rotate left/right
+	if ( keyboard.pressed("a") )
+		boat2.rotation.y += delta;
+	if ( keyboard.pressed("d") )
+		boat2.rotation.y -= delta;
+	var walkingKeys = ["w", "s", "a", "d"];
+	for (var i = 0; i < walkingKeys.length; i++)
+	{
+		if ( keyboard.pressed(walkingKeys[i]) )
+			walking = true;
+	}
+    
+	
+	controls.update();
+}
+    
+    //Collision Detection
+    /*
+function detectCollision() {
+ 	
+		var localVertex = boat.geometry.vertices[vertexIndex].clone();
+		var globalVertex = localVertex.applyMatrix4( boat.matrix );
+		var directionVector = globalVertex.sub( boat2.position );
+		
+		var ray = new THREE.Raycaster( originPoint, directionVector.clone().normalize() );
+		var collisionResults = ray.intersectObjects( collidableMeshList );
+		if ( collisionResults.length > 0 && collisionResults[0].distance < directionVector.length() ) 
+		appendText(" Hit ");
+			
+		
+	
+}
+*/
+function render() 
+{
+    
+    //detectCollision();
+	renderer.render( scene, camera );
+}
+
+</script>
+
+</body>
+</html>
