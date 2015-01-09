@@ -9,7 +9,7 @@
 <body>
 
 <!-- External -->   
-
+<script src="js/Three.js"></script>
 <script src="js/tmin.js"></script>
 <script src="js/FastBlur.js"></script>   
 <script src="js/jquery.min.js"></script>   
@@ -36,7 +36,8 @@
 <script src="js/THREEx.FullScreen.js"></script>
 <script src="js/THREEx.WindowResize.js"></script>
 <script src="js/physi.js"></script>
-<script src="js/Three.js"></script>
+
+
 
 
 
@@ -47,26 +48,23 @@
 // MAIN
 
 //Globalne spremenljike
+    
+
 var container, scene, camera, renderer, render, controls, stats, water, walls;
 var keyboard = new THREEx.KeyboardState();
 var clock = new THREE.Clock();
-
-var boat;
-var boat2;
-var collidableMeshList = [];
-
-    
+var boat, boat2, wall, bb,geom;
+var collidableMeshList= [];
 init();
 animate();
 
-//FUNCTIONS
+//Funkcije
     
 
 function init()
     {
 	
-    //Scena
-    
+    //Scena    
 	scene = new Physijs.Scene();
         
 	//Kamera
@@ -85,7 +83,6 @@ function init()
 	renderer.setSize(window.innerWidth, window.innerHeight);
 	container = document.getElementById( 'ThreeJS' );
 	container.appendChild( renderer.domElement );
-    
     scene.simulate(); // run physics
     renderer.render(scene, camera); // render the scene
     requestAnimationFrame(render);
@@ -96,7 +93,6 @@ function init()
 	THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
     
     //Kontrole
-    
 	controls = new THREE.OrbitControls(camera, renderer.domElement);
     
 	//Svetloba
@@ -128,14 +124,11 @@ function init()
 		scene.add(aMeshMirror);
 
         
-	// SKYBOX/FOG
-
-	
+	// Skybox	
 	var imagePrefix = "images/sky-";
 	var directions  = ["xpos", "xneg", "ypos", "yneg", "zpos", "zneg"];
 	var imageSuffix = ".jpg";
-	var skyGeometry = new THREE.CubeGeometry( 5000, 5000, 5000 );	
-	
+	var skyGeometry = new THREE.CubeGeometry( 5000, 5000, 5000 );		
 	var materialArray = [];
 	for (var i = 0; i < 6; i++)
 		materialArray.push( new THREE.MeshBasicMaterial({
@@ -147,34 +140,40 @@ function init()
 	scene.add( skyBox ); 
     
 	
-    //Model
+    //Modeli    
 	var jsonLoader = new THREE.JSONLoader();
-	jsonLoader.load( "models/warship.js", addModelToScene );
-	jsonLoader.load("models/warship.js", addModel2ToScene);
-    
+	jsonLoader.load( "models/ship.js", addModelToScene );
+	jsonLoader.load("models/ship.js", addModel2ToScene);
 	var ambientLight = new THREE.AmbientLight(0x111111);
 	scene.add(ambientLight);
-    
-    
 	
 }
+
 
 function addModelToScene( geometry, materials ) 
 {	
 	var material = new THREE.MeshFaceMaterial( materials );
-	boat = new THREE.Mesh( geometry, material );
+	boat = new Physijs.BoxMesh( geometry, material );  
 	boat.scale.set(10,10,10);
+    boat.rotation.y = 3.14159;
+    boat.position.set(0,0,0);
+    boat.name='Player 1 Boat';
 	scene.add( boat );
-    //collidableMeshList.push(boat);
+
+
 }
 
 function addModel2ToScene( geometry, materials ) 
 {	
 	var material = new THREE.MeshFaceMaterial( materials );
-	boat2 = new THREE.Mesh( geometry, material );
+	boat2 = new Physijs.BoxMesh( geometry, material );
 	boat2.scale.set(10,10,10);
+    boat2.position.set(200,0,0);
+    boat2.name='Player 2 Boat';
 	scene.add( boat2 );
-    //collidableMeshList.push(boat2);
+    collidableMeshList.push(boat2);
+  
+    
 }    
     
     
@@ -192,7 +191,8 @@ function display(){
     
 function update()
 {
-    
+   
+
     water.material.uniforms.time.value += 1.0 / 60.0;
     display();
 	// delta = change in time since last call (seconds)
@@ -234,34 +234,44 @@ function update()
 			walking = true;
 	}
     
-	
-	controls.update();
-}
-    
-    //Collision Detection
-    /*
-function detectCollision() {
- 	
+    //Detekcija trkov! :D (ki ne dela. FML.)
+    var originPoint = boat.position;
+    for (var vertexIndex = 0; vertexIndex < boat.geometry.vertices.length; vertexIndex++)
+	{		
 		var localVertex = boat.geometry.vertices[vertexIndex].clone();
 		var globalVertex = localVertex.applyMatrix4( boat.matrix );
-		var directionVector = globalVertex.sub( boat2.position );
+		var directionVector = globalVertex.sub( boat.position );
 		
 		var ray = new THREE.Raycaster( originPoint, directionVector.clone().normalize() );
 		var collisionResults = ray.intersectObjects( collidableMeshList );
-		if ( collisionResults.length > 0 && collisionResults[0].distance < directionVector.length() ) 
-		appendText(" Hit ");
-			
+		if ( collisionResults.length > 0 && collisionResults[0].distance < directionVector.length() )
+        {
+            if ( keyboard.pressed("down") )
+		          boat.translateZ( moveDistance );
+	        if ( keyboard.pressed("up") )
+		          boat.translateZ( -moveDistance );
+	// rotate left/right
+	        if ( keyboard.pressed("left") )
+		          boat.rotation.y -= delta;
+	        if ( keyboard.pressed("right") )
+		          boat.rotation.y += delta;
+        }
 		
+	}	
 	
+    
+    
+	controls.update();
 }
-*/
+    
+    
 function render() 
 {
-    
-    //detectCollision();
 	renderer.render( scene, camera );
 }
 
+
+    
 </script>
 
 </body>
