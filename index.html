@@ -8,38 +8,36 @@
 </head>
 <body>
 
-<!-- External -->   
+<!-- Vsega -->  
+    
 <script src="js/Three.js"></script>
-<script src="js/tmin.js"></script>
+<script src="js/tmin.js"></script>  
+<script src="js/physi.js"></script>
+<script src="js/physijs_worker.js"></script>
+<script src="js/ammo.js"></script>
+ 
+<script src="js/tween.js"></script>
 <script src="js/FastBlur.js"></script>   
 <script src="js/jquery.min.js"></script>   
 <script src="js/konami.js"></script>       
 <script src="js/OrbitControls.js"></script>    
-<script src="js/RequestAnimationFrame.js"></script>    
-    
-<!-- Teren -->    
-<script src="js/terrain/blur.js"></script>    
-<script src="js/terrain/circle.js"></script> 
-<script src="js/terrain/destructure.js"></script>   
-<script src="js/terrain/mersenne-twister.js"></script> 
-<script src="js/terrain/mountains.js"></script>     
-<script src="js/terrain/perlinnoise.js"></script>
-<script src="js/terrain/terraingen.js"></script>   
+<script src="js/RequestAnimationFrame.js"></script>   
+
     
 <!-- Shader za vodo -->
 <script src="js/water-material.js"></script>
     
 <!-- Ostalo -->    
-
 <script src="js/Detector.js"></script>
 <script src="js/THREEx.KeyboardState.js"></script>
 <script src="js/THREEx.FullScreen.js"></script>
 <script src="js/THREEx.WindowResize.js"></script>
-<script src="js/physi.js"></script>
 
 
 
 
+
+	
 
 
 <div id="ThreeJS" style="position: absolute; left:0px; top:0px"></div>
@@ -48,25 +46,29 @@
 // MAIN
 
 //Globalne spremenljike
-    
-
+   
 var container, scene, camera, renderer, render, controls, stats, water, walls;
 var keyboard = new THREEx.KeyboardState();
 var clock = new THREE.Clock();
-var boat, boat2, wall, bb,geom;
+var boat, boat2;
+
+var cannon_p1=true;
+var cannon_p2=true;
 var collidableMeshList= [];
-init();
-animate();
+var collidableMeshList2= [];
+document.addEventListener( "DOMContentLoaded", function() {
+  init();
+  animate();
+});
 
 //Funkcije
     
 
 function init()
     {
-	
     //Scena    
 	scene = new Physijs.Scene();
-        
+          
 	//Kamera
 	var SCREEN_WIDTH = window.innerWidth, SCREEN_HEIGHT = window.innerHeight;
 	var VIEW_ANGLE = 45, ASPECT = SCREEN_WIDTH / SCREEN_HEIGHT, NEAR = 0.1, FAR = 20000;
@@ -76,21 +78,15 @@ function init()
 	camera.lookAt(scene.position);	
     
 	//Renderer
-	if ( Detector.webgl )
-		renderer = new THREE.WebGLRenderer( {antialias:true} );
-	else
-		renderer = new THREE.CanvasRenderer(); 
-	renderer.setSize(window.innerWidth, window.innerHeight);
-	container = document.getElementById( 'ThreeJS' );
-	container.appendChild( renderer.domElement );
-    scene.simulate(); // run physics
-    renderer.render(scene, camera); // render the scene
-    requestAnimationFrame(render);
-   
+	renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setClearColorHex(0x87CEEB);
+    document.body.appendChild(renderer.domElement);
+    scene.simulate(); 
     
 	//Eventi
 	THREEx.WindowResize(renderer, camera);
-	THREEx.FullScreen.bindKey({ charCode : 'm'.charCodeAt(0) });
+	THREEx.FullScreen.bindKey({ charCode : 'f'.charCodeAt(0) });
     
     //Kontrole
 	controls = new THREE.OrbitControls(camera, renderer.domElement);
@@ -114,7 +110,7 @@ function init()
 			betaVersion: 0,
 			side: THREE.DoubleSide
 		});
-		var aMeshMirror = new Physijs.BoxMesh(
+		var aMeshMirror = new Physijs.PlaneMesh(
 			new THREE.PlaneGeometry(4990,4990, 100, 100), 
 			water.material
 		);
@@ -152,89 +148,139 @@ function init()
 
 function addModelToScene( geometry, materials ) 
 {	
-	var material = new THREE.MeshFaceMaterial( materials );
-	boat = new Physijs.BoxMesh( geometry, material );  
-	boat.scale.set(10,10,10);
-    boat.rotation.y = 3.14159;
-    boat.position.set(0,0,0);
+    boat= new Physijs.BoxMesh(geometry, new THREE.MeshFaceMaterial(materials));
     boat.name='Player 1 Boat';
-	scene.add( boat );
-
+    boat.scale.set(10,10,10);
+    boat.position.set(0,0,0);
+    scene.add( boat );
+    collidableMeshList2.push(boat);
 
 }
 
 function addModel2ToScene( geometry, materials ) 
-{	
-	var material = new THREE.MeshFaceMaterial( materials );
-	boat2 = new Physijs.BoxMesh( geometry, material );
-	boat2.scale.set(10,10,10);
+{	  
+    boat2= new Physijs.BoxMesh(geometry, new THREE.MeshFaceMaterial(materials));
+    boat2.scale.set(10,10,10);
     boat2.position.set(200,0,0);
     boat2.name='Player 2 Boat';
-	scene.add( boat2 );
+    scene.add( boat2 );
     collidableMeshList.push(boat2);
-  
-    
 }    
     
     
 function animate() 
 {
     requestAnimationFrame( animate );
+    TWEEN.update() 
 	render();		
 	update();
 }
-
+  
 function display(){
     water.render();
 	renderer.render(scene, camera);
 }
     
+    
+ 
+    
 function update()
-{
-   
+{      
 
     water.material.uniforms.time.value += 1.0 / 60.0;
     display();
-	// delta = change in time since last call (seconds)
 	delta = clock.getDelta(); 
 	var moveDistance = 100 * delta;
-	walking = false;
-	
+    
 	// Premikanje (P1)
 	if ( keyboard.pressed("down") )
-		boat.translateZ( -moveDistance );
+		boat.translateZ( -moveDistance );  
 	if ( keyboard.pressed("up") )
 		boat.translateZ(  moveDistance );
-	// rotate left/right
 	if ( keyboard.pressed("left") )
 		boat.rotation.y += delta;
 	if ( keyboard.pressed("right") )
 		boat.rotation.y -= delta;
-	var walkingKeys = ["up", "down", "left", "right"];
-	for (var i = 0; i < walkingKeys.length; i++)
-	{
-		if ( keyboard.pressed(walkingKeys[i]) )
-			walking = true;
-	}
+	
 	
     //Premikanje (P2)
     if ( keyboard.pressed("s") )
-		boat2.translateZ( -moveDistance );
+        boat2.translateZ( -moveDistance );
 	if ( keyboard.pressed("w") )
 		boat2.translateZ(  moveDistance );
-	// rotate left/right
 	if ( keyboard.pressed("a") )
 		boat2.rotation.y += delta;
 	if ( keyboard.pressed("d") )
 		boat2.rotation.y -= delta;
-	var walkingKeys = ["w", "s", "a", "d"];
-	for (var i = 0; i < walkingKeys.length; i++)
-	{
-		if ( keyboard.pressed(walkingKeys[i]) )
-			walking = true;
-	}
+	
+				
+    //Streljanje P1				 
+    if (keyboard.pressed("shift")){
+        if(cannon_p1==true){
+           cannon_p1=false;
+           bulletObject = new Physijs.SphereMesh(
+					new THREE.SphereGeometry( 10, 10, 10, 0, Math.PI * 2, 0, Math.PI ),
+					new THREE.MeshLambertMaterial( {color: 0x000000} ));  
+          
+    bulletObject.position = boat.position;
+    scene.add(bulletObject);
+    collidableMeshList2.push(bulletObject);
+    var vector = new THREE.Vector3( 0, 0, 1 );  
+    vector.applyQuaternion( boat.quaternion );       
     
-    //Detekcija trkov! :D (ki ne dela. FML.)
+    bulletTween = new TWEEN.Tween( { x: boat.position.x, y: 0, z: boat.position.z } ) 
+    .to( { x: boat.position.x+(vector.x*1000), y: 0, z: boat.position.z+(vector.z*1000)}, 
+    2000 
+    ).easing( TWEEN.Easing.Linear.None ).onUpdate( function() {
+    bulletObject.position.x = this.x;
+    bulletObject.position.y = this.y;
+    bulletObject.position.z = this.z;
+    })
+    .onComplete( function () {
+    scene.remove(bulletObject);
+    collidableMeshList2.pop(bulletObject);
+    cannon_p1=true;
+    
+    } )
+    .start(); 
+      
+        }    
+    }   
+		 		
+    //Streljanje P2
+    if (keyboard.pressed("q")){
+        if(cannon_p2==true){
+             cannon_p2=false;
+    bulletObject2 = new Physijs.SphereMesh(
+					new THREE.SphereGeometry( 10, 10, 10, 0, Math.PI * 2, 0, Math.PI ),
+					new THREE.MeshLambertMaterial( {color: 0x000000} )  );
+          
+    bulletObject2.position = boat2.position;
+    scene.add(bulletObject2);
+    collidableMeshList.push(bulletObject2);
+    var vector2 = new THREE.Vector3( 0, 0, 1 );  
+    vector2.applyQuaternion( boat2.quaternion ); 
+            
+    bulletTween2 = new TWEEN.Tween( { x: boat2.position.x, y: 0, z: boat2.position.z } ) 
+    .to( { x: boat2.position.x+(vector2.x*1000), y: 0, z: boat2.position.z+(vector2.z*1000)}, 
+    2000 
+    ).easing( TWEEN.Easing.Linear.None ).onUpdate( function() {
+        bulletObject2.position.x = this.x;
+        bulletObject2.position.y = this.y;
+        bulletObject2.position.z = this.z;
+    })
+    .onComplete( function () {
+        cannon_p2=true;
+        scene.remove(bulletObject2);
+        collidableMeshList.pop(bulletObject2);
+    } )
+    .start();
+            
+        }  
+    }
+
+    
+    //Detekcija trkov! :D    
     var originPoint = boat.position;
     for (var vertexIndex = 0; vertexIndex < boat.geometry.vertices.length; vertexIndex++)
 	{		
@@ -246,28 +292,50 @@ function update()
 		var collisionResults = ray.intersectObjects( collidableMeshList );
 		if ( collisionResults.length > 0 && collisionResults[0].distance < directionVector.length() )
         {
+            if(window.bulletObject2)
+                bulletObject2.visible=false;
             if ( keyboard.pressed("down") )
 		          boat.translateZ( moveDistance );
 	        if ( keyboard.pressed("up") )
 		          boat.translateZ( -moveDistance );
-	// rotate left/right
+
 	        if ( keyboard.pressed("left") )
 		          boat.rotation.y -= delta;
 	        if ( keyboard.pressed("right") )
-		          boat.rotation.y += delta;
+		          boat.rotation.y += delta;          
         }
 		
 	}	
-	
-    
-    
-	controls.update();
+     var originPoint2 = boat2.position;
+    for (var vertexIndex2 = 0; vertexIndex2 < boat2.geometry.vertices.length; vertexIndex2++)
+	{		
+		var localVertex2 = boat2.geometry.vertices[vertexIndex2].clone();
+		var globalVertex2 = localVertex2.applyMatrix4( boat2.matrix );
+		var directionVector2 = globalVertex2.sub( boat2.position );
+		
+		var ray2 = new THREE.Raycaster( originPoint2, directionVector2.clone().normalize() );
+		var collisionResults2 = ray2.intersectObjects( collidableMeshList2 );
+		if ( collisionResults2.length > 0 && collisionResults2[0].distance < directionVector2.length() )
+        {
+             if(window.bulletObject)
+                bulletObject.visible=false;
+            if ( keyboard.pressed("s") )
+		          boat2.translateZ( 10 );
+	        if ( keyboard.pressed("w") )
+		          boat2.translateZ( -10 );
+	        if ( keyboard.pressed("a") )
+		          boat2.rotation.y -= delta;
+	        if ( keyboard.pressed("d") )
+		          boat2.rotation.y += delta;
+        }	
+	}	
+    controls.update();
 }
-    
     
 function render() 
 {
 	renderer.render( scene, camera );
+  
 }
 
 
