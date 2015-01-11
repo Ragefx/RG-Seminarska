@@ -51,7 +51,8 @@ var container, scene, camera, renderer, render, controls, stats, water, walls;
 var keyboard = new THREEx.KeyboardState();
 var clock = new THREE.Clock();
 var boat, boat2;
-
+var p1_hp=100;
+var p2_hp=100;
 var cannon_p1=true;
 var cannon_p2=true;
 var collidableMeshList= [];
@@ -138,8 +139,8 @@ function init()
 	
     //Modeli    
 	var jsonLoader = new THREE.JSONLoader();
-	jsonLoader.load( "models/ship.js", addModelToScene );
-	jsonLoader.load("models/ship.js", addModel2ToScene);
+	jsonLoader.load( "models/warship.js", addModelToScene );
+	jsonLoader.load("models/warship.js", addModel2ToScene);
 	var ambientLight = new THREE.AmbientLight(0x111111);
 	scene.add(ambientLight);
 	
@@ -186,7 +187,10 @@ function display(){
     
 function update()
 {      
-
+if(p1_hp<0 && p2_hp<0){
+   console.log("HI");
+   
+}
     water.material.uniforms.time.value += 1.0 / 60.0;
     display();
 	delta = clock.getDelta(); 
@@ -282,7 +286,7 @@ function update()
     
     //Detekcija trkov! :D    
     var originPoint = boat.position;
-    for (var vertexIndex = 0; vertexIndex < boat.geometry.vertices.length; vertexIndex++)
+    for (var vertexIndex = 0; vertexIndex < boat.geometry.vertices.length; vertexIndex=vertexIndex+50)
 	{		
 		var localVertex = boat.geometry.vertices[vertexIndex].clone();
 		var globalVertex = localVertex.applyMatrix4( boat.matrix );
@@ -292,22 +296,31 @@ function update()
 		var collisionResults = ray.intersectObjects( collidableMeshList );
 		if ( collisionResults.length > 0 && collisionResults[0].distance < directionVector.length() )
         {
-            if(window.bulletObject2)
+            if(window.bulletObject2){
+                if(bulletObject2.visible==true){
+                console.log("LOL");
+                p1_hp=p1_hp-15;
                 bulletObject2.visible=false;
+                }
+            }
+            else{
+                p1_hp=p1_hp-5;
+            }
             if ( keyboard.pressed("down") )
-		          boat.translateZ( moveDistance );
+		         keyboard
 	        if ( keyboard.pressed("up") )
 		          boat.translateZ( -moveDistance );
 
 	        if ( keyboard.pressed("left") )
 		          boat.rotation.y -= delta;
 	        if ( keyboard.pressed("right") )
-		          boat.rotation.y += delta;          
+		          boat.rotation.y += delta; 
+              console.log(p1_hp);
         }
 		
 	}	
      var originPoint2 = boat2.position;
-    for (var vertexIndex2 = 0; vertexIndex2 < boat2.geometry.vertices.length; vertexIndex2++)
+    for (var vertexIndex2 = 0; vertexIndex2 < boat2.geometry.vertices.length; vertexIndex2=vertexIndex2+50)
 	{		
 		var localVertex2 = boat2.geometry.vertices[vertexIndex2].clone();
 		var globalVertex2 = localVertex2.applyMatrix4( boat2.matrix );
@@ -317,8 +330,16 @@ function update()
 		var collisionResults2 = ray2.intersectObjects( collidableMeshList2 );
 		if ( collisionResults2.length > 0 && collisionResults2[0].distance < directionVector2.length() )
         {
-             if(window.bulletObject)
+             if(window.bulletObject){
+                 if(bulletObject.visible==true){
+                  console.log("LOL");
+                 p2_hp=p2_hp-15;
                 bulletObject.visible=false;
+                }
+             }
+            else{
+                p2_hp=p2_hp-5;
+            }
             if ( keyboard.pressed("s") )
 		          boat2.translateZ( 10 );
 	        if ( keyboard.pressed("w") )
@@ -327,8 +348,10 @@ function update()
 		          boat2.rotation.y -= delta;
 	        if ( keyboard.pressed("d") )
 		          boat2.rotation.y += delta;
+        console.log(p2_hp);
         }	
-	}	
+	}
+    
     controls.update();
 }
     
